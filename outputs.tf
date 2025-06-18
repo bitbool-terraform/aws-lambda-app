@@ -3,5 +3,5 @@ output "lambda_app_url" {
 }
 
 output "lambda_alb_target_group_arn" {
-  value = local.lambda_alb_target_group_arn
+  value = try(aws_lb_target_group.target_group[0].arn,null)
 }

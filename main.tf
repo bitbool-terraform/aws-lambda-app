@@ -1,3 +1,51 @@
+data "aws_region" "current" {}
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_policy" "lambda_base" {
+  name   = format("lambda-%s-base",var.function_name)
+  path   = "/"
+  policy = jsonencode({
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Sid": "CreateLogGroup",
+          "Action": [
+            "logs:CreateLogGroup"
+          ],
+          "Effect": "Allow",
+          "Resource": [
+            "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+          ]
+        },
+        {
+          "Sid": "CreateLogs",
+          "Action": [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+          ],
+          "Effect": "Allow",
+          "Resource": [
+            "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${var.function_name}:*"
+          ]
+        },
+     ]
+    })
+
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_base" {
+  role       = aws_iam_role.iam_for_lambda.name
+  policy_arn = aws_iam_policy.lambda_base.arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_policies" {
+  for_each = var.lambda_policies_arns
+
+  role       = aws_iam_role.iam_for_lambda.name
+  policy_arn = each.value.arn
+}
+
+
 data "aws_iam_policy_document" "lambda_assume_role" {
   statement {
     effect = "Allow"
@@ -13,13 +61,13 @@ data "aws_iam_policy_document" "lambda_assume_role" {
 
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = format("%s-%s-%s",var.project,var.systemenv,var.function_name)
+  name               = var.function_name
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
 }
 
 
 resource "aws_lambda_function" "lambda_app" {
-    function_name = format("%s-%s-%s",var.project,var.systemenv,var.function_name)
+    function_name = var.function_name
     package_type  = "Image"
     role          = aws_iam_role.iam_for_lambda.arn
     image_uri     = var.image_uri
@@ -52,7 +100,7 @@ resource "aws_lb_target_group" "target_group" {
 
   count = var.enable_alb_target ? 1 : 0
 
-  name        = local.app_fullname
+  name        = var.function_name
   target_type = "lambda"
   vpc_id      = var.vpc_id
   ip_address_type = "ipv4"
@@ -96,7 +144,7 @@ resource "aws_lb_target_group_attachment" "target_group_attachment" {
 resource "aws_lambda_permission" "allow_alb" {
   count = var.enable_alb_target ? 1 : 0
 
-  statement_id  = "AllowExecutionFromALB-${local.app_fullname}"
+  statement_id  = "AllowExecutionFromALB-${var.function_name}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lambda_app.function_name
   principal     = "elasticloadbalancing.amazonaws.com"

@@ -1,6 +1,6 @@
-variable "project" {}
-variable "systemenv" {}
-variable "aws_region" {}
+# variable "project" {}
+# variable "systemenv" {}
+#variable "aws_region" {}
 
 variable "function_name" {}
 variable "image_uri" {}
@@ -37,3 +37,5 @@ variable "ephemeral_storage" { default = 512 }
 
 variable "authorization_type" { default = "NONE" }
 variable "invoke_mode" { default = "BUFFERED" }
+
+variable "lambda_policies_arns" { default = {} }
