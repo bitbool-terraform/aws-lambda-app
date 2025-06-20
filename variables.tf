@@ -11,7 +11,7 @@ variable "handler" { default = null }
 variable "architectures" { default = ["x86_64"] }
 variable "environment" { default = {} }
 
-variable "vpc_id" {}
+variable "vpc_id" { default = null }
 
 variable "port" { default = 80 }
 
@@ -22,7 +22,7 @@ variable "interval" { default = 60 }
 variable "path" { default = "/" }
 variable "protocol" { default = "HTTP" }
 
-variable "timeout" { default = 10 }
+variable "timeout" { default = 3 }
 variable "matcher" { default = "200-299" }
 variable "load_balancing_algorithm_type" { default = "least_outstanding_requests" }
 
@@ -39,3 +39,9 @@ variable "authorization_type" { default = "NONE" }
 variable "invoke_mode" { default = "BUFFERED" }
 
 variable "lambda_policies_arns" { default = {} }
+
+variable "enable_vpc_intergration" { default = false }
+variable "subnet_ids" { default = [] }
+
+variable "efs_arn" { default = null }
+variable "efs_mount" { default = null }

@@ -38,6 +38,7 @@ resource "aws_iam_role_policy_attachment" "lambda_base" {
   policy_arn = aws_iam_policy.lambda_base.arn
 }
 
+
 resource "aws_iam_role_policy_attachment" "lambda_policies" {
   for_each = var.lambda_policies_arns
 
@@ -74,14 +75,35 @@ resource "aws_lambda_function" "lambda_app" {
     handler       = var.handler
     architectures = var.architectures
     memory_size   = var.memory_size
+    timeout       = var.timeout
 
     environment {
         variables = var.environment
-  }
+    }
 
     ephemeral_storage {
         size = var.ephemeral_storage
     }
+
+    dynamic "vpc_config" {
+      for_each = var.enable_vpc_intergration ? [""] : []
+
+      content {
+          subnet_ids         = var.subnet_ids
+          security_group_ids = try([aws_security_group.lambda[0].id],null)
+      }
+    }  
+
+    dynamic "file_system_config" {
+      for_each = var.efs_arn != null ? [""] : []
+
+      content {
+        arn              = var.efs_arn
+        local_mount_path = var.efs_mount
+      }
+    }  
+
+    depends_on = [aws_iam_role_policy_attachment.lambda_efs]
 }
 
 
@@ -149,4 +171,32 @@ resource "aws_lambda_permission" "allow_alb" {
   function_name = aws_lambda_function.lambda_app.function_name
   principal     = "elasticloadbalancing.amazonaws.com"
   source_arn    = aws_lb_target_group.target_group[0].arn
+}
+
+
+
+resource "aws_security_group" "lambda" {
+  count = var.enable_vpc_intergration ? 1 : 0
+
+  name     = format("lambda-%s",var.function_name)
+  vpc_id   = var.vpc_id
+
+  tags = merge({"Name" = format("lambda-%s",var.function_name)})
+
+  egress {
+      from_port       = 0
+      to_port         = 0
+      protocol        = -1
+      cidr_blocks     = ["0.0.0.0/0"]
+  }  
+
+  lifecycle { ignore_changes = [ingress,egress] }
+
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_efs" {
+  count = var.enable_vpc_intergration ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
